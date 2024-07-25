@@ -7,7 +7,7 @@ import random
 import codecs as cs
 from tqdm import tqdm
 import spacy
-
+from glob import glob
 from torch.utils.data._utils.collate import default_collate
 from data_loaders.humanml.utils.word_vectorizer import WordVectorizer
 from data_loaders.humanml.utils.get_opt import get_opt
@@ -214,18 +214,30 @@ class Text2MotionDatasetV2(data.Dataset):
         min_motion_len = 40 if self.opt.dataset_name =='t2m' else 24
 
         data_dict = {}
-        id_list = []
-        with cs.open(split_file, 'r') as f:
-            for line in f.readlines():
-                id_list.append(line.strip())
+        # id_list = []
+        # with cs.open(split_file, 'r') as f:
+        #     for line in f.readlines():
+        #         id_list.append(line.strip())
         # id_list = id_list[:200]
+        
+        # ids = np.arange(1233)
+        # id_list = [str(i) for i in ids]
+        
+        id_list = []
+        id_files = glob(opt.text_dir + "/*.txt")
+        for i in id_files:
+            id = i.split("/")[-1].split(".")[0]
+            id_list.append(str(id))
 
+        print(id_list)
         new_name_list = []
         length_list = []
+        count = 0
         for name in tqdm(id_list):
             try:
                 motion = np.load(pjoin(opt.motion_dir, name + '.npy'))
                 if (len(motion)) < min_motion_len or (len(motion) >= 200):
+                    count += 1
                     continue
                 text_data = []
                 flag = False
@@ -248,7 +260,7 @@ class Text2MotionDatasetV2(data.Dataset):
                         else:
                             try:
                                 n_motion = motion[int(f_tag*20) : int(to_tag*20)]
-                                if (len(n_motion)) < min_motion_len or (len(n_motion) >= 200):
+                                if (len(n_motion)) < min_motion_len: # or (len(n_motion) >= 200):
                                     continue
                                 new_name = random.choice('ABCDEFGHIJKLMNOPQRSTUVW') + '_' + name
                                 while new_name in data_dict:
@@ -271,6 +283,8 @@ class Text2MotionDatasetV2(data.Dataset):
                     length_list.append(len(motion))
             except:
                 pass
+            
+        print("Number of samples greater than 200 or less than 40:", count)
 
         name_list, length_list = zip(*sorted(zip(new_name_list, length_list), key=lambda x: x[1]))
 
@@ -356,11 +370,16 @@ class Text2MotionDatasetBaseline(data.Dataset):
         min_motion_len = 40 if self.opt.dataset_name =='t2m' else 24
 
         data_dict = {}
-        id_list = []
-        with cs.open(split_file, 'r') as f:
-            for line in f.readlines():
-                id_list.append(line.strip())
+        # id_list = []
+        # with cs.open(split_file, 'r') as f:
+        #     for line in f.readlines():
+        #         id_list.append(line.strip())
         # id_list = id_list[:200]
+        id_list = []
+        id_files = glob(opt.text_dir + "/*.txt")
+        for i in id_files:
+            id = i.split("/")[-1].split(".")[0]
+            id_list.append(str(id))
 
         new_name_list = []
         length_list = []
@@ -507,10 +526,16 @@ class MotionDatasetV2(data.Dataset):
 
         self.data = []
         self.lengths = []
+        # id_list = []
+        # with cs.open(split_file, 'r') as f:
+        #     for line in f.readlines():
+        #         id_list.append(line.strip())
+        
         id_list = []
-        with cs.open(split_file, 'r') as f:
-            for line in f.readlines():
-                id_list.append(line.strip())
+        id_files = glob(opt.text_dir + "/*.txt")
+        for i in id_files:
+            id = i.split("/")[-1].split(".")[0]
+            id_list.append(str(id))
 
         for name in tqdm(id_list):
             try:
@@ -650,11 +675,23 @@ class TextOnlyDataset(data.Dataset):
 
 
         data_dict = {}
-        id_list = []
-        with cs.open(split_file, 'r') as f:
-            for line in f.readlines():
-                id_list.append(line.strip())
+        # id_list = []
+        # with cs.open(split_file, 'r') as f:
+        #     for line in f.readlines():
+        #         id_list.append(line.strip())
         # id_list = id_list[:200]
+        
+        # ids = np.arange(1233)
+        # id_list = [str(i) for i in ids]
+        
+        id_list = []
+        id_files = glob(opt.text_dir + "/*.txt")
+        for i in id_files:
+            id = i.split("/")[-1].split(".")[0]
+            id_list.append(str(id))
+            
+        print(opt.text_dir)
+        print(id_list,id_files)
 
         new_name_list = []
         length_list = []
@@ -721,7 +758,7 @@ class TextOnlyDataset(data.Dataset):
 class HumanML3D(data.Dataset):
     def __init__(self, mode, datapath='./dataset/humanml_opt.txt', split="train", **kwargs):
         self.mode = mode
-        
+        print(mode)
         self.dataset_name = 't2m'
         self.dataname = 't2m'
 
@@ -730,31 +767,31 @@ class HumanML3D(data.Dataset):
         dataset_opt_path = pjoin(abs_base_path, datapath)
         device = None  # torch.device('cuda:4') # This param is not in use in this context
         opt = get_opt(dataset_opt_path, device)
-        opt.meta_dir = pjoin(abs_base_path, opt.meta_dir)
-        opt.motion_dir = pjoin(abs_base_path, opt.motion_dir)
-        opt.text_dir = pjoin(abs_base_path, opt.text_dir)
+        opt.data_root = '/home/ubuntu/data/HumanML3D' #pjoin(abs_base_path, opt.data_root)
+        # opt.meta_dir = pjoin(abs_base_path, opt.meta_dir)
+        opt.motion_dir = pjoin(opt.data_root, split, 'new_joints_vecs') #pjoin(abs_base_path, opt.motion_dir)
+        opt.text_dir = pjoin(opt.data_root, split, 'texts') #pjoin(abs_base_path, opt.text_dir)
         opt.model_dir = pjoin(abs_base_path, opt.model_dir)
         opt.checkpoints_dir = pjoin(abs_base_path, opt.checkpoints_dir)
-        opt.data_root = pjoin(abs_base_path, opt.data_root)
         opt.save_root = pjoin(abs_base_path, opt.save_root)
-        opt.meta_dir = './dataset'
+        opt.meta_dir = '/home/ubuntu/data/HumanML3D'
         self.opt = opt
         print('Loading dataset %s ...' % opt.dataset_name)
 
         if mode == 'gt':
             # used by T2M models (including evaluators)
-            self.mean = np.load(pjoin(opt.meta_dir, f'{opt.dataset_name}_mean.npy'))
-            self.std = np.load(pjoin(opt.meta_dir, f'{opt.dataset_name}_std.npy'))
+            self.mean = np.load(pjoin("/home/ubuntu/data/HumanML3D", 'Mean.npy'))
+            self.std = np.load(pjoin("/home/ubuntu/data/HumanML3D", 'Std.npy'))
         elif mode in ['train', 'eval', 'text_only']:
             # used by our models
-            self.mean = np.load(pjoin(opt.data_root, 'Mean.npy'))
-            self.std = np.load(pjoin(opt.data_root, 'Std.npy'))
+            self.mean = np.load(pjoin("/home/ubuntu/data/HumanML3D", 'Mean.npy'))
+            self.std = np.load(pjoin("/home/ubuntu/data/HumanML3D", 'Std.npy'))
 
         if mode == 'eval':
             # used by T2M models (including evaluators)
             # this is to translate their norms to ours
-            self.mean_for_eval = np.load(pjoin(opt.meta_dir, f'{opt.dataset_name}_mean.npy'))
-            self.std_for_eval = np.load(pjoin(opt.meta_dir, f'{opt.dataset_name}_std.npy'))
+            self.mean_for_eval = np.load(pjoin("/home/ubuntu/data/HumanML3D", 'Mean.npy'))
+            self.std_for_eval = np.load(pjoin("/home/ubuntu/data/HumanML3D", 'Std.npy'))
 
         self.split_file = pjoin(opt.data_root, f'{split}.txt')
         if mode == 'text_only':

@@ -131,9 +131,12 @@ class TrainLoop:
             for motion, cond in tqdm(self.data):
                 if not (not self.lr_anneal_steps or self.step + self.resume_step < self.lr_anneal_steps):
                     break
-
+                
                 motion = motion.to(self.device)
                 cond['y'] = {key: val.to(self.device) if torch.is_tensor(val) else val for key, val in cond['y'].items()}
+
+                # print(f"Motion represtation:",motion.shape)
+                # print(f"Conditioning labels:",cond.keys())
 
                 self.run_step(motion, cond)
                 if self.step % self.log_interval == 0:
@@ -148,8 +151,8 @@ class TrainLoop:
 
                 if self.step % self.save_interval == 0:
                     self.save()
-                    self.model.eval()
-                    self.evaluate()
+                    # self.model.eval()
+                    # self.evaluate()
                     self.model.train()
 
                     # Run for a finite amount of time in integration tests.

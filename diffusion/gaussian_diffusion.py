@@ -40,6 +40,11 @@ def get_named_beta_schedule(schedule_name, num_diffusion_timesteps, scale_betas=
             num_diffusion_timesteps,
             lambda t: math.cos((t + 0.008) / 1.008 * math.pi / 2) ** 2,
         )
+    elif schedule_name == "exponential":
+        steps = np.arange(num_diffusion_timesteps)
+        f = 0.05*(1-np.exp(-2*steps/num_diffusion_timesteps))
+        betas = np.clip(f,0.0001,0.999)
+        return betas
     else:
         raise NotImplementedError(f"unknown beta schedule: {schedule_name}")
 

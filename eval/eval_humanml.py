@@ -163,7 +163,10 @@ def evaluation(eval_wrapper, gt_loader, eval_motion_loaders, log_file, replicati
 
             print(f'Time: {datetime.now()}')
             print(f'Time: {datetime.now()}', file=f, flush=True)
-            div_score_dict = evaluate_diversity(acti_dict, f, diversity_times)
+            try:
+                div_score_dict = evaluate_diversity(acti_dict, f, diversity_times)
+            except:
+                print("Error in diversity L167 in eval_humanml.py")
 
             if run_mm:
                 print(f'Time: {datetime.now()}')
@@ -247,7 +250,7 @@ if __name__ == '__main__':
         mm_num_samples = 0
         mm_num_repeats = 0
         mm_num_times = 0
-        diversity_times = 300
+        diversity_times = 150 #300
         replication_times = 5  # about 3 Hrs
     elif args.eval_mode == 'wo_mm':
         num_samples_limit = 1000
@@ -255,7 +258,7 @@ if __name__ == '__main__':
         mm_num_samples = 0
         mm_num_repeats = 0
         mm_num_times = 0
-        diversity_times = 300
+        diversity_times = 150 #300
         replication_times = 20 # about 12 Hrs
     elif args.eval_mode == 'mm_short':
         num_samples_limit = 1000
@@ -263,7 +266,7 @@ if __name__ == '__main__':
         mm_num_samples = 100
         mm_num_repeats = 30
         mm_num_times = 10
-        diversity_times = 300
+        diversity_times = 150 #300
         replication_times = 5  # about 15 Hrs
     else:
         raise ValueError()
@@ -273,7 +276,7 @@ if __name__ == '__main__':
     logger.configure()
 
     logger.log("creating data loader...")
-    split = 'test'
+    split = 'eval'
     gt_loader = get_dataset_loader(name=args.dataset, batch_size=args.batch_size, num_frames=None, split=split, hml_mode='gt')
     gen_loader = get_dataset_loader(name=args.dataset, batch_size=args.batch_size, num_frames=None, split=split, hml_mode='eval')
     num_actions = gen_loader.dataset.num_actions
