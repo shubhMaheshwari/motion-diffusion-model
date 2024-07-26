@@ -18,13 +18,49 @@ from diffusion.resample import create_named_schedule_sampler
 from data_loaders.humanml.networks.evaluator_wrapper import EvaluatorMDMWrapper
 from eval import eval_humanml, eval_humanact12_uestc
 from data_loaders.get_data import get_dataset_loader
-
+from classifier import MotionClassifierCNN
+import torch.nn.functional as F
 
 # For ImageNet experiments, this was a good default value.
 # We found that the lg_loss_scale quickly climbed to
 # 20-21 within the first ~1K steps of training.
 INITIAL_LOG_LOSS_SCALE = 20.0
 
+classifier_model = MotionClassifierCNN()
+classifier_model.load_state_dict(torch.load("motion_classifier_cnn.pth", map_location='cuda'))
+classifier_model.eval()
+
+action_to_desc = {
+        "bend and pull full" : 0,
+        "countermovement jump" : 1,
+        "left countermovement jump" : 2,
+        "left lunge and twist" : 3,
+        "left lunge and twist full" : 4,
+        "right countermovement jump" : 5,
+        "right lunge and twist" : 6,
+        "right lunge and twist full" : 7,
+        "right single leg squat" : 8,
+        "squat" : 9,
+        "bend and pull" : 10,
+        "left single leg squat" : 11,
+        "push up" : 12
+    }
+
+def get_class(text):
+    out = []
+    for t in text:
+        out.append(action_to_desc[t])
+    return out
+
+def get_classifier_logits(motion, label, model, lamda=10):
+    model = model.to('cuda')
+    motion = motion.squeeze(2).to('cuda')
+    logits = model(motion)
+    loss = F.cross_entropy(logits, label, reduction='none')
+    # print(loss)
+    c = torch.exp(-loss*lamda)
+    # print(c)
+    return c
 
 class TrainLoop:
     def __init__(self, args, train_platform, model, diffusion, data):
@@ -129,16 +165,22 @@ class TrainLoop:
         for epoch in range(self.num_epochs):
             print(f'Starting epoch {epoch}')
             for motion, cond in tqdm(self.data):
+                # print(motion.shape, cond['y']['text'])
                 if not (not self.lr_anneal_steps or self.step + self.resume_step < self.lr_anneal_steps):
                     break
                 
+                labels = torch.tensor(get_class(cond['y']['text'])).to(self.device)
+                
                 motion = motion.to(self.device)
+                
+                wts = get_classifier_logits(motion, labels, classifier_model)
+                
                 cond['y'] = {key: val.to(self.device) if torch.is_tensor(val) else val for key, val in cond['y'].items()}
 
                 # print(f"Motion represtation:",motion.shape)
                 # print(f"Conditioning labels:",cond.keys())
 
-                self.run_step(motion, cond)
+                self.run_step(motion, cond, wts)
                 if self.step % self.log_interval == 0:
                     for k,v in logger.get_current().dumpkvs().items():
                         if k == 'loss':
@@ -206,13 +248,13 @@ class TrainLoop:
         print(f'Evaluation time: {round(end_eval-start_eval)/60}min')
 
 
-    def run_step(self, batch, cond):
-        self.forward_backward(batch, cond)
+    def run_step(self, batch, cond, wts):
+        self.forward_backward(batch, cond, wts)
         self.mp_trainer.optimize(self.opt)
         self._anneal_lr()
         self.log_step()
 
-    def forward_backward(self, batch, cond):
+    def forward_backward(self, batch, cond, wts):
         self.mp_trainer.zero_grad()
         for i in range(0, batch.shape[0], self.microbatch):
             # Eliminates the microbatch feature
@@ -243,7 +285,12 @@ class TrainLoop:
                     t, losses["loss"].detach()
                 )
 
-            loss = (losses["loss"] * weights).mean()
+            # loss = (losses["loss"] * weights).mean()
+            
+            loss = (losses["loss"] * weights)
+            loss = loss * wts
+            loss = loss.mean()
+            
             log_loss_dict(
                 self.diffusion, t, {k: v * weights for k, v in losses.items()}
             )

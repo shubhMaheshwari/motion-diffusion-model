@@ -65,7 +65,7 @@ def add_base_options(parser):
 
 def add_diffusion_options(parser):
     group = parser.add_argument_group('diffusion')
-    group.add_argument("--noise_schedule", default='cosine', choices=['linear', 'cosine'], type=str,
+    group.add_argument("--noise_schedule", default='exponential', choices=['linear', 'cosine','exponential'], type=str,
                        help="Noise schedule type")
     group.add_argument("--diffusion_steps", default=1000, type=int,
                        help="Number of diffusion steps (denoted T in the paper)")
